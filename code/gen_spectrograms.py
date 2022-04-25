@@ -59,6 +59,7 @@ def create_spectrogram_images(trainloader, label_dir):
             except:
                 print("File error")  
 
+            plt.figure()
             plt.imsave(f'./{folder}/spectrograms/{label_dir}/spec_img{i}.png', spectrogram_tensor[0].log2()[0,:,:].numpy(), cmap='viridis')
 
 for name in labels:
