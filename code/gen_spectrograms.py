@@ -52,17 +52,13 @@ def create_spectrogram_images(trainloader, label_dir):
         for i, data in enumerate(trainloader):
 
             waveform = data[0]
-            sample_rate = data[1][0]
-            label = data[2]
-            ID = data[3]
 
             try:
                 # create transformed waveforms
                 spectrogram_tensor = torchaudio.transforms.Spectrogram()(waveform)   
             except:
                 print("File error")  
-            
-            fig = plt.figure()
+
             plt.imsave(f'./{folder}/spectrograms/{label_dir}/spec_img{i}.png', spectrogram_tensor[0].log2()[0,:,:].numpy(), cmap='viridis')
 
 for name in labels:
