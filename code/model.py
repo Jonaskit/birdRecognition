@@ -12,6 +12,8 @@ from torchvision import datasets, models, transforms
 from torchinfo import summary
 import pandas as pd
 import os
+from collections import Counter
+import time
 
 class CNNet(nn.Module):
     def __init__(self):
@@ -32,15 +34,14 @@ class CNNet(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = F.relu(self.fc2(x))
-        return F.log_softmax(x,dim=1)
-
+        return F.log_softmax(x,dim=1) 
 
 def train(dataloader, model, loss, optimizer):
     model.train()
     size = len(dataloader.dataset)
     for batch, (X, Y) in enumerate(dataloader):
-
-        X, Y = X.to(device), Y.to(device)
+        
+        X, Y = X.to(device, non_blocking=True), Y.to(device, non_blocking=True)
         optimizer.zero_grad()
         pred = model(X)
         loss = cost(pred, Y)
@@ -61,7 +62,7 @@ def test(dataloader, model):
 
     with torch.no_grad():
         for batch, (X, Y) in enumerate(dataloader):
-            X, Y = X.to(device), Y.to(device)
+            X, Y = X.to(device, non_blocking=True), Y.to(device, non_blocking=True)
             pred = model(X)
 
             test_loss += cost(pred, Y).item()
@@ -72,60 +73,60 @@ def test(dataloader, model):
 
     print(f'\nTest Error:\nacc: {(100*correct):>0.1f}%, avg loss: {test_loss:>8f}\n')
 
-
-
 if __name__ == '__main__':
-    epochs = 300
-    data_path = './birdclef-2022/spectrograms'  # looking in subfolder train
+    epochs = 150
+    data_path = './birdclef-2022/spectrograms' #looking in subfolder train
 
     dataset = datasets.ImageFolder(
         root=data_path,
-        transform=transforms.Compose([transforms.Resize((201, 81)),
-                                      transforms.ToTensor()
-                                      ])
+        transform=transforms.Compose([transforms.Resize((201,81)),
+                                    transforms.ToTensor()
+                                    ])
     )
     print(dataset)
 
-    class_map = dataset.class_to_idx
+    class_map=dataset.class_to_idx
 
-    print("\nClass category and index of the images: {}\n".format(class_map))
-    print(dataset.classes)
-    # split data to test and train
-    # use 80% to train
+    print("\n {} Class category and index of the images: {}\n".format(len(dataset.classes), class_map))
+
+    #split data to test and train
+    #use 80% to train
     train_size = int(0.8 * len(dataset))
     test_size = len(dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
     print("Training size:", len(train_dataset))
-    print("Testing size:", len(test_dataset))
-
-    from collections import Counter
+    print("Testing size:",len(test_dataset))
 
     # labels in training set
     train_classes = [label for _, label in train_dataset]
     print(Counter(train_classes))
 
+    batch_size = 40
+    num_workers = 2
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=15,
-        num_workers=2,
-        shuffle=True
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=True,
+        pin_memory=True
     )
 
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=15,
-        num_workers=2,
-        shuffle=True
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=True,
+        pin_memory=True
     )
 
     td = train_dataloader.dataset[0][0][0][0]
     print(td)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print('Using {} device'.format(device))
+    print('Using {} device'.format(device)) 
 
-    model = CNNet().to(device)
+    model = CNNet().to(device, non_blocking=True)
 
     # cost function used to determine best parameters
     cost = torch.nn.CrossEntropyLoss()
@@ -136,10 +137,17 @@ if __name__ == '__main__':
 
     # Create the training function
 
+    start_time = time.time()
+
     for t in range(epochs):
         print(f'Epoch {t+1}\n-------------------------------')
         train(train_dataloader, model, cost, optimizer)
         test(test_dataloader, model)
+        end_time = time.time()
+        print(f'Took: {end_time - start_time}s\n')
+        start_time = end_time
+        print('-------------------------------')
+
     print('Done!')
 
     summary(model, input_size=(15, 3, 201, 81))
@@ -148,12 +156,22 @@ if __name__ == '__main__':
     test_loss, correct = 0, 0
 
     with torch.no_grad():
+        correct = 0
+        incorrect = 0
         for batch, (X, Y) in enumerate(test_dataloader):
             print("Batch: ", batch)
-            X, Y = X.to(device), Y.to(device)
+            X, Y = X.to(device, non_blocking=True), Y.to(device, non_blocking=True)
             pred = model(X)
-
+            
             for i in range(len(pred)):
-                print("Predicted: {}, Actual: {}\n".format(dataset.classes[pred[i].argmax(0)], dataset.classes[Y[i]]))
+                predicted = dataset.classes[pred[i].argmax(0)]
+                actual = dataset.classes[Y[i]]
+                print("Predicted: {}, Actual: {}\n".format(predicted, actual))
+                if predicted == actual:
+                    correct += 1
+                else:
+                    incorrect += 1
                 # print("Predicted:\nvalue={}, class_name= {}\n".format(pred[i].argmax(0),dataset.classes[pred[i].argmax(0)]))
                 # print("Actual:\nvalue={}, class_name= {}\n".format(Y[i],dataset.classes[Y[i]]))
+        
+        print("Final correct: ", correct, ", Incorrect: ", incorrect)
