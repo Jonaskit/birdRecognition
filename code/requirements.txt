@@ -1,0 +1,9 @@
+torch
+torchaudio
+soundfile
+sox
+ipython
+matplotlib
+torchvision
+torchinfo
+pandas
