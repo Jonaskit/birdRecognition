@@ -1,7 +1,6 @@
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 import torch
-import torchaudio
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -11,18 +10,27 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, models, transforms
 from torchinfo import summary
 import pandas as pd
-import os
 from collections import Counter
 import time
+
+epochs = 1000
+batch_size = 100
+num_workers = 2
+learning_rate = 0.0001
+data_path = './birdclef-2022/spectrograms' #looking in subfolder train
+
+bestAcc = 0
+bestEpoch = 0
 
 class CNNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=5)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=5)
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3)
         self.conv2_drop = nn.Dropout2d()
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(51136, 50)
+        self.fc1 = nn.Linear(55296, 500)
+        self.fc11 = nn.Linear(500, 50)
         self.fc2 = nn.Linear(50, len(dataset.classes))
 
 
@@ -32,6 +40,8 @@ class CNNet(nn.Module):
         #x = x.view(x.size(0), -1)
         x = self.flatten(x)
         x = F.relu(self.fc1(x))
+        x = F.dropout(x, training=self.training)
+        x = F.relu(self.fc11(x))
         x = F.dropout(x, training=self.training)
         x = F.relu(self.fc2(x))
         return F.log_softmax(x,dim=1) 
@@ -47,15 +57,15 @@ def train(dataloader, model, loss, optimizer):
         loss = cost(pred, Y)
         loss.backward()
         optimizer.step()
-
-        if batch % 100 == 0:
-            loss, current = loss.item(), batch * len(X)
-            print(f'loss: {loss:>7f}  [{current:>5d}/{size:>5d}]')
+        loss, current = loss.item(), batch * batch_size
+        print(f'loss: {loss:>7f}  [{current:>5d}/{size:>5d}]')
 
 
 # Create the validation/test function
 
-def test(dataloader, model):
+def test(dataloader, model, epoch):
+    global bestAcc, bestEpoch
+
     size = len(dataloader.dataset)
     model.eval()
     test_loss, correct = 0, 0
@@ -71,12 +81,13 @@ def test(dataloader, model):
     test_loss /= size
     correct /= size
 
-    print(f'\nTest Error:\nacc: {(100*correct):>0.1f}%, avg loss: {test_loss:>8f}\n')
+    if correct > bestAcc:
+        bestAcc = correct
+        bestEpoch = epoch
+
+    print(f'\nTest Error:\nacc: {(100*correct):>0.1f}%, avg loss: {test_loss:>8f}, best acc: {(100*correct):>0.1f}% at epoch {bestEpoch+1}\n')
 
 if __name__ == '__main__':
-    epochs = 150
-    data_path = './birdclef-2022/spectrograms' #looking in subfolder train
-
     dataset = datasets.ImageFolder(
         root=data_path,
         transform=transforms.Compose([transforms.Resize((201,81)),
@@ -102,8 +113,6 @@ if __name__ == '__main__':
     train_classes = [label for _, label in train_dataset]
     print(Counter(train_classes))
 
-    batch_size = 40
-    num_workers = 2
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -132,7 +141,6 @@ if __name__ == '__main__':
     cost = torch.nn.CrossEntropyLoss()
 
     # used to create optimal parameters
-    learning_rate = 0.0001
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Create the training function
@@ -142,7 +150,7 @@ if __name__ == '__main__':
     for t in range(epochs):
         print(f'Epoch {t+1}\n-------------------------------')
         train(train_dataloader, model, cost, optimizer)
-        test(test_dataloader, model)
+        test(test_dataloader, model, t)
         end_time = time.time()
         print(f'Took: {end_time - start_time}s\n')
         start_time = end_time
