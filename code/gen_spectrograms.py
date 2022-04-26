@@ -2,10 +2,13 @@ import os
 import torch
 import torchaudio
 import IPython.display as ipd
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
+
+matplotlib.use('Agg')
 
 default_dir = os.getcwd()
 folder = 'birdclef-2022'
@@ -20,7 +23,7 @@ else:
 os.chdir(f'./{folder}/train_audio/')
 
 # Sample limit
-limit = 8
+limit = 50
 labels = [name for name in os.listdir('.') if os.path.isdir(name)][:limit]
 # back to default directory
 os.chdir(default_dir)
@@ -52,18 +55,18 @@ def create_spectrogram_images(trainloader, label_dir):
         for i, data in enumerate(trainloader):
 
             waveform = data[0]
-
-            try:
-                # create transformed waveforms
-                spectrogram_tensor = torchaudio.transforms.Spectrogram()(waveform)   
-            except:
-                print("File error")  
-
-            plt.figure()
+            sample_rate = data[1][0]
+            label = data[2]
+            ID = data[3]
+            
+            # create transformed waveforms
+            spectrogram_tensor = torchaudio.transforms.Spectrogram()(waveform)
+            fig = plt.figure()
             plt.imsave(f'./{folder}/spectrograms/{label_dir}/spec_img{i}.png', spectrogram_tensor[0].log2()[0,:,:].numpy(), cmap='viridis')
+            plt.close(fig)
 
-for name in labels:
+for i, name in enumerate(labels):
     trainset = load_audio_files(f'./{folder}/train_audio/{name}', name)
-    print(f'Length of {name} dataset: {len(trainset)}')
+    print(f'Length of #{i} {name} dataset: {len(trainset)}')
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=1, shuffle=True, num_workers=0)
     create_spectrogram_images(trainloader, name)
