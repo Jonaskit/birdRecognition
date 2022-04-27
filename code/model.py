@@ -102,11 +102,6 @@ if __name__ == '__main__':
                 pred = model(X)
 
                 test_loss += cost(pred, Y).item()
-
-                print("PRED")
-                print(pred)
-                print("Y")
-                print(Y)
                 correct += (pred.argmax(1)==Y).type(torch.float).sum().item()
         
         size = len(dataloader.dataset)
