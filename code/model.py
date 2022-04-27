@@ -19,6 +19,7 @@ if __name__ == '__main__':
     num_workers = 2
     learning_rate = 0.001
     train_ratio = 0.8
+    stop_over = 90 # percent
     data_path = './birdclef-2022/spectrograms' #looking in subfolder train
 
     bestAcc = 0
@@ -162,6 +163,8 @@ if __name__ == '__main__':
         print(f'Took: {end_time - start_time}s\n')
         start_time = end_time
         print('-------------------------------')
+        if bestAcc * 100 >= stop_over:
+            break
 
     print('Done!')
 
