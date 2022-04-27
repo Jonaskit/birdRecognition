@@ -24,6 +24,7 @@ os.chdir(f'./{folder}/train_audio/')
 
 # Sample limit
 limit = 8
+duration = 5
 labels = [name for name in os.listdir('.') if os.path.isdir(name)][:limit]
 # back to default directory
 os.chdir(default_dir)
@@ -41,7 +42,7 @@ def load_audio_files(path: str, label:str):
         # Load audio
         waveform, sample_rate = torchaudio.load(file_path)
         
-        target_num_samples = sample_rate * 5
+        target_num_samples = sample_rate * duration
         length_waveform = waveform.shape[1]
 
         if length_waveform > target_num_samples:
