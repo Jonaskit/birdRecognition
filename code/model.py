@@ -17,7 +17,7 @@ if __name__ == '__main__':
     epochs = 10
     batch_size = 15
     num_workers = 2
-    learning_rate = 0.01
+    learning_rate = 0.001
     train_ratio = 0.8
     data_path = './birdclef-2022/spectrograms' #looking in subfolder train
 
@@ -82,9 +82,9 @@ if __name__ == '__main__':
         for batch, (X, Y) in enumerate(dataloader):
             
             X, Y = X.to(device, non_blocking=True), Y.to(device, non_blocking=True)
-            optimizer.zero_grad()
             pred = model(X)
             loss = cost(pred, Y)
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             loss, current = loss.item(), batch * batch_size
