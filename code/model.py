@@ -14,10 +14,10 @@ from collections import Counter
 import time
 
 if __name__ == '__main__':
-    epochs = 1000
+    epochs = 10
     batch_size = 15
     num_workers = 2
-    learning_rate = 0.0001
+    learning_rate = 0.01
     train_ratio = 0.8
     data_path = './birdclef-2022/spectrograms' #looking in subfolder train
 
@@ -36,34 +36,47 @@ if __name__ == '__main__':
     class CNNet(nn.Module):
         def __init__(self):
             super().__init__()
-            self.conv1 = nn.Conv2d(3, 32, kernel_size=5)
-            # self.conv2 = nn.Conv2d(32, 64, kernel_size=5)
-            # self.conv3 = nn.Conv2d(32, 64, kernel_size=5)
-            self.conv4 = nn.Conv2d(32, 64, kernel_size=5)
-            self.conv4_drop = nn.Dropout2d()
+            self.conv1 = nn.Sequential(
+                nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=2),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2)
+            )
+
+            self.conv2 = nn.Sequential(
+                nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=2),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2)
+            )
+
+            self.conv3 = nn.Sequential(
+                nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=2),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2)
+            )
+
+            self.conv4 = nn.Sequential(
+                nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=2),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2)
+            )
+
             self.flatten = nn.Flatten()
-            self.fc1 = nn.Linear(51136, 100)
-            # self.fc2 = nn.Linear(2000, 50)
-            # self.fc3 = nn.Linear(50, 50)
-            self.fc4 = nn.Linear(100, len(dataset.classes))
+            self.linear = nn.Linear(10752, len(dataset.classes))
+            self.softmax = nn.Softmax(dim=1)
 
-        def forward(self, x):
-            x = F.relu(F.max_pool2d(self.conv1(x), 2))
-            # x = F.relu(F.max_pool2d(self.conv2(x), 2))
-            # x = F.relu(F.max_pool2d(self.conv3(x), 2))
-            x = F.relu(F.max_pool2d(self.conv4_drop(self.conv4(x)), 2))
-            #x = x.view(x.size(0), -1)
+        def forward(self, input_data):
+            x = self.conv1(input_data)
+            x = self.conv2(x)
+            x = self.conv3(x)
+            x = self.conv4(x)
             x = self.flatten(x)
-            x = F.relu(self.fc1(x))
-            x = F.dropout(x, training=self.training)
-            # x = F.relu(self.fc2(x))
-            # x = F.dropout(x, training=self.training)
-            # x = F.relu(self.fc3(x))
-            # x = F.dropout(x, training=self.training)
-            x = F.relu(self.fc4(x))
-            return F.log_softmax(x,dim=1) 
+            logits = self.linear(x)
+            predictions = self.softmax(logits)
+            return predictions
 
-    def train(dataloader, model, loss, optimizer):
+
+
+    def train(dataloader, model, cost, optimizer):
         model.train()
         size = len(dataloader.dataset)
         for batch, (X, Y) in enumerate(dataloader):
@@ -89,6 +102,11 @@ if __name__ == '__main__':
                 pred = model(X)
 
                 test_loss += cost(pred, Y).item()
+
+                print("PRED")
+                print(pred)
+                print("Y")
+                print(Y)
                 correct += (pred.argmax(1)==Y).type(torch.float).sum().item()
         
         size = len(dataloader.dataset)
