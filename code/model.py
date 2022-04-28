@@ -35,10 +35,11 @@ def load_audio_files(path: str, label: str):
         target_num_samples = sample_rate * duration
         length_waveform = waveform.shape[1]
 
+        # TODO: Equal length needed here !! -> Added 9600 (only temporary solution)
+        # TODO: Is there a bug in the original IF-ELSE as well? (else reurns 16000 = larger number)
         if length_waveform > target_num_samples:
             waveform = waveform[:, sample_rate * 2:target_num_samples]
         else:
-            #TODO: Equal length needed here !!!!!!!!
             num_missing_samples = 96000 - length_waveform
             last_dim_padding = (0, num_missing_samples)
             waveform = torch.nn.functional.pad(waveform, last_dim_padding)
