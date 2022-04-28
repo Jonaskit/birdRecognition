@@ -53,6 +53,8 @@ class AudioDataSet(Dataset):
 
         self.class_to_idx = { i : labels[i] for i in range(0, len(labels)) }
 
+        self.class_to_idx_rev = {labels[i]: i for i in range(0, len(labels))}
+
         self.data = []
         for name in labels:
             #audios : [ [[data]] ; sample_rate ; label ; filename]
@@ -70,7 +72,7 @@ class AudioDataSet(Dataset):
 
     def __getitem__(self, idx):
         data = self.data[idx]
-        return data[0][0], data[2]
+        return data[0][0], self.class_to_idx_rev[data[2]]
 
 if __name__ == '__main__':
     epochs = 10
