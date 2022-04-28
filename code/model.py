@@ -18,7 +18,7 @@ from pathlib import Path
 import os
 
 duration = 5
-birds = ['afrsil', 'akekee']
+birds = ['afrsil1', 'akekee']
 
 
 def load_audio_files(path: str, label: str):
@@ -38,7 +38,8 @@ def load_audio_files(path: str, label: str):
         if length_waveform > target_num_samples:
             waveform = waveform[:, sample_rate * 2:target_num_samples]
         else:
-            num_missing_samples = target_num_samples - length_waveform
+            #TODO: Equal length needed here !!!!!!!!
+            num_missing_samples = 96000 - length_waveform
             last_dim_padding = (0, num_missing_samples)
             waveform = torch.nn.functional.pad(waveform, last_dim_padding)
 
@@ -48,11 +49,20 @@ def load_audio_files(path: str, label: str):
 
 class AudioDataSet(Dataset):
     def __init__(self, folder, labels):
+        self.classes = labels
+
+        self.class_to_idx = { i : labels[i] for i in range(0, len(labels)) }
+
         self.data = []
         for name in labels:
-            #audios = [ [[data]] ; sample_rate ; label ; filename]
+            #audios : [ [[data]] ; sample_rate ; label ; filename]
             # only first index of data contains actually data ... !
             audios = load_audio_files(f'./{folder}/{name}', name)
+
+            if len(audios) == 0:
+                print("CHECK FILE NAMES AND DATA!!")
+                sys.exit()
+
             self.data.extend(audios)
 
     def __len__(self):
@@ -78,6 +88,9 @@ if __name__ == '__main__':
         folder=data_path,
         labels = birds
     )
+
+    print(dataset)
+    print("\n {} Class category and index of the images: {}\n".format(len(dataset.classes), dataset.class_to_idx))
 
     # cost function used to determine best parameters
     cost = torch.nn.CrossEntropyLoss()
