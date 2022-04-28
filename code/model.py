@@ -12,6 +12,55 @@ from torchinfo import summary
 import pandas as pd
 from collections import Counter
 import time
+import sys
+import torchaudio
+from pathlib import Path
+import os
+
+duration = 5
+birds = ['afrsil', 'akekee']
+
+
+def load_audio_files(path: str, label: str):
+    dataset = []
+    walker = sorted(str(p) for p in Path(path).glob(f'*.ogg'))
+
+    for i, file_path in enumerate(walker):
+        path, filename = os.path.split(file_path)
+        speaker, _ = os.path.splitext(filename)
+
+        # Load audio
+        waveform, sample_rate = torchaudio.load(file_path)
+
+        target_num_samples = sample_rate * duration
+        length_waveform = waveform.shape[1]
+
+        if length_waveform > target_num_samples:
+            waveform = waveform[:, sample_rate * 2:target_num_samples]
+        else:
+            num_missing_samples = target_num_samples - length_waveform
+            last_dim_padding = (0, num_missing_samples)
+            waveform = torch.nn.functional.pad(waveform, last_dim_padding)
+
+        dataset.append([waveform, sample_rate, label, speaker])
+
+    return dataset
+
+class AudioDataSet(Dataset):
+    def __init__(self, folder, labels):
+        self.data = []
+        for name in labels:
+            #audios = [ [[data]] ; sample_rate ; label ; filename]
+            # only first index of data contains actually data ... !
+            audios = load_audio_files(f'./{folder}/{name}', name)
+            self.data.extend(audios)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        data = self.data[idx]
+        return data[0][0], data[2]
 
 if __name__ == '__main__':
     epochs = 10
@@ -20,17 +69,16 @@ if __name__ == '__main__':
     learning_rate = 0.001
     train_ratio = 0.8
     stop_over = 90 # percent
-    data_path = './birdclef-2022/spectrograms' #looking in subfolder train
+    data_path = './birdclef-2022/train_audio' #looking in subfolder train
 
     bestAcc = 0
     bestEpoch = 0
 
-    dataset = datasets.ImageFolder(
-        root=data_path,
-        transform=transforms.Compose([transforms.Resize((201,81)), transforms.ToTensor()])
+    dataset = AudioDataSet(
+        folder=data_path,
+        labels = birds
     )
-    print(dataset)
-    print("\n {} Class category and index of the images: {}\n".format(len(dataset.classes), dataset.class_to_idx))
+
     # cost function used to determine best parameters
     cost = torch.nn.CrossEntropyLoss()
 
