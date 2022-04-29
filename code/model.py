@@ -62,7 +62,7 @@ if __name__ == '__main__':
             )
 
             self.flatten = nn.Flatten()
-            self.linear = nn.Linear(10752, len(dataset.classes))
+            self.linear = nn.Linear(55552, len(dataset.classes))
             self.softmax = nn.Softmax(dim=1)
 
         def forward(self, input_data):
