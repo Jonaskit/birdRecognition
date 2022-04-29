@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     dataset = datasets.ImageFolder(
         root=data_path,
-        transform=transforms.Compose([transforms.Resize((201,81)), transforms.ToTensor()])
+        transform=transforms.Compose([transforms.Resize((201,481)), transforms.ToTensor()])
     )
     print(dataset)
     print("\n {} Class category and index of the images: {}\n".format(len(dataset.classes), dataset.class_to_idx))
@@ -88,9 +88,9 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            loss, current = loss.item(), batch * batch_size
-            print(f'loss: {loss:>7f}  [{current:>5d}/{size:>5d}]')
-
+            loss, current = loss.item(), (batch + 1) * batch_size
+            print(f'loss: {loss:>7f}  [{current if current < size else size:>5d}/{size:>5d}]', end="\r")
+        
     def test(dataloader, model, epoch):
         global bestAcc, bestEpoch
 
@@ -160,7 +160,7 @@ if __name__ == '__main__':
         train(train_dataloader, model, cost, optimizer)
         test(test_dataloader, model, t)
         end_time = time.time()
-        print(f'Took: {end_time - start_time}s\n')
+        print(f'Took: {end_time - start_time}s')
         start_time = end_time
         print('-------------------------------')
         if bestAcc * 100 >= stop_over:
