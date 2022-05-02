@@ -31,16 +31,16 @@ def load_audio_files(path: str, label: str):
 
         # Load audio
         waveform, sample_rate = torchaudio.load(file_path)
+        waveform = torch.mean(waveform, dim=0, keepdim=True)
 
         target_num_samples = sample_rate * duration
         length_waveform = waveform.shape[1]
 
-        # TODO: Equal length needed here !! -> Added 9600 (only temporary solution)
-        # TODO: Is there a bug in the original IF-ELSE as well? (else reurns 16000 = larger number)
         if length_waveform > target_num_samples:
-            waveform = waveform[:, sample_rate * 2:target_num_samples]
-        else:
-            num_missing_samples = 96000 - length_waveform
+            waveform = waveform[:, :target_num_samples]
+
+        elif length_waveform < target_num_samples:
+            num_missing_samples = target_num_samples - length_waveform
             last_dim_padding = (0, num_missing_samples)
             waveform = torch.nn.functional.pad(waveform, last_dim_padding)
 
@@ -59,7 +59,6 @@ class AudioDataSet(Dataset):
         self.data = []
         for name in labels:
             #audios : [ [[data]] ; sample_rate ; label ; filename]
-            # only first index of data contains actually data ... !
             audios = load_audio_files(f'./{folder}/{name}', name)
 
             if len(audios) == 0:
@@ -73,7 +72,7 @@ class AudioDataSet(Dataset):
 
     def __getitem__(self, idx):
         data = self.data[idx]
-        return data[0][0], self.class_to_idx_rev[data[2]]
+        return data[0], self.class_to_idx_rev[data[2]]
 
 if __name__ == '__main__':
     epochs = 10
@@ -102,31 +101,31 @@ if __name__ == '__main__':
         def __init__(self):
             super().__init__()
             self.conv1 = nn.Sequential(
-                nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=2),
+                nn.Conv1d(in_channels=1, out_channels=16, kernel_size=3, stride=1, padding=2),
                 nn.ReLU(),
-                nn.MaxPool2d(kernel_size=2)
+                nn.MaxPool1d(kernel_size=2)
             )
 
             self.conv2 = nn.Sequential(
-                nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=2),
+                nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=2),
                 nn.ReLU(),
-                nn.MaxPool2d(kernel_size=2)
+                nn.MaxPool1d(kernel_size=2)
             )
 
             self.conv3 = nn.Sequential(
-                nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=2),
+                nn.Conv1d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=2),
                 nn.ReLU(),
-                nn.MaxPool2d(kernel_size=2)
+                nn.MaxPool1d(kernel_size=2)
             )
 
             self.conv4 = nn.Sequential(
-                nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=2),
+                nn.Conv1d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=2),
                 nn.ReLU(),
-                nn.MaxPool2d(kernel_size=2)
+                nn.MaxPool1d(kernel_size=2)
             )
 
             self.flatten = nn.Flatten()
-            self.linear = nn.Linear(10752, len(dataset.classes))
+            self.linear = nn.Linear(1280128, len(dataset.classes))
             self.softmax = nn.Softmax(dim=1)
 
         def forward(self, input_data):
