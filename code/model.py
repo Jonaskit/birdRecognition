@@ -79,7 +79,7 @@ class AudioDataSet(Dataset):
         return data[0], self.class_to_idx_rev[data[2]]
 
 if __name__ == '__main__':
-    epochs = 1
+    epochs = 10
     batch_size = 15
     num_workers = 2
     learning_rate = 0.001
@@ -129,6 +129,8 @@ if __name__ == '__main__':
             )
 
             self.flatten = nn.Flatten()
+            #todo: number of in_features to nn.Linear has to be changed with every change of target_num_samples
+            #todo: figure out number of input features by program itself .. ?
             self.linear = nn.Linear(80128, len(dataset.classes))
             self.softmax = nn.Softmax(dim=1)
 
