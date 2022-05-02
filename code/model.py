@@ -17,8 +17,9 @@ import torchaudio
 from pathlib import Path
 import os
 
-duration = 5
-birds = ['afrsil1', 'akekee']
+
+target_num_samples = 10000
+birds = ['arcter', 'bcnher']
 
 
 def load_audio_files(path: str, label: str):
@@ -31,10 +32,13 @@ def load_audio_files(path: str, label: str):
 
         # Load audio
         waveform, sample_rate = torchaudio.load(file_path)
+
+        #Reduce first dimension to 1
         waveform = torch.mean(waveform, dim=0, keepdim=True)
 
-        target_num_samples = sample_rate * duration
         length_waveform = waveform.shape[1]
+
+        #Reduce second dimension to target_num_samples
 
         if length_waveform > target_num_samples:
             waveform = waveform[:, :target_num_samples]
@@ -75,7 +79,7 @@ class AudioDataSet(Dataset):
         return data[0], self.class_to_idx_rev[data[2]]
 
 if __name__ == '__main__':
-    epochs = 10
+    epochs = 1
     batch_size = 15
     num_workers = 2
     learning_rate = 0.001
@@ -125,7 +129,7 @@ if __name__ == '__main__':
             )
 
             self.flatten = nn.Flatten()
-            self.linear = nn.Linear(1280128, len(dataset.classes))
+            self.linear = nn.Linear(80128, len(dataset.classes))
             self.softmax = nn.Softmax(dim=1)
 
         def forward(self, input_data):
@@ -231,7 +235,7 @@ if __name__ == '__main__':
 
     print('Done!')
 
-    summary(model, input_size=(15, 3, 201, 81))
+    summary(model, input_size=(batch_size, 1, target_num_samples))
 
     model.eval()
     test_loss, correct = 0, 0
