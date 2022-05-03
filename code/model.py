@@ -14,18 +14,22 @@ from collections import Counter
 import time
 from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import validation_curve
 import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
-    epochs = 1
+    epochs = 10
     batch_size = 15
     num_workers = 2
     learning_rate = 0.001
     train_ratio = 0.8
     stop_over = 90 # percent
     data_path = './birdclef-2022/spectrogramsSubset' #looking in subfolder train
-
+    eval_losses=[]
+    eval_accu=[]
+    train_accu=[]
+    train_losses=[]
     bestAcc = 0
     bestEpoch = 0
 
@@ -84,6 +88,11 @@ if __name__ == '__main__':
 
     def train(dataloader, model, cost, optimizer):
         model.train()
+        running_loss=0
+        correct=0
+        total=0
+
+        
         size = len(dataloader.dataset)
         for batch, (X, Y) in enumerate(dataloader):
             
@@ -93,22 +102,53 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            loss, current = loss.item(), (batch + 1) * batch_size
-            print(f'loss: {loss:>7f}  [{current if current < size else size:>5d}/{size:>5d}]', end="\r")
+            loss_item, current = loss.item(), (batch + 1) * batch_size
+            running_loss += loss_item
+            
+            _, predicted = pred.max(1)
+            total += Y.size(0)
+            correct += predicted.eq(Y).sum().item()
+            
+            print(f'loss: {loss_item:>7f}  [{current if current < size else size:>5d}/{size:>5d}]', end="\r")
+
+        train_loss=running_loss/len(dataloader)
+        accu=100.*correct/total
+  
+        train_accu.append(accu)
+        train_losses.append(train_loss)
+        print('Train Loss: %.3f | Accuracy: %.3f'%(train_loss,accu))
+
         
     def test(dataloader, model, epoch):
         global bestAcc, bestEpoch
-
+ 
+        
         model.eval()
-        test_loss, correct = 0, 0
+        test_loss = 0 
+        correct = 0
+        running_loss = 0 
+        total = 0
 
         with torch.no_grad():
             for batch, (X, Y) in enumerate(dataloader):
                 X, Y = X.to(device, non_blocking=True), Y.to(device, non_blocking=True)
                 pred = model(X)
-
-                test_loss += cost(pred, Y).item()
+                loss = cost(pred, Y) 
+                running_loss += loss.item()
                 correct += (pred.argmax(1)==Y).type(torch.float).sum().item()
+                
+                _, predicted = pred.max(1)
+                total += Y.size(0)
+                correct += predicted.eq(Y).sum().item()
+        
+                
+        test_loss=running_loss/len(dataloader)
+        accu=100.*correct/total
+
+        eval_losses.append(test_loss)
+        eval_accu.append(accu)
+
+        print('Test Loss: %.3f | Accuracy: %.3f'%(test_loss,accu))
         
         size = len(dataloader.dataset)
         test_loss /= size
@@ -213,13 +253,39 @@ if __name__ == '__main__':
                 # print("Actual:\nvalue={}, class_name= {}\n".format(Y[i],dataset.classes[Y[i]]))
       #  y_pred = np.array(dataset.classes[pred.argmax(0)])
       #  y_test = np.array(dataset.classes[Y])
+      
+        labels = ["1", "2", "3", "4", "5"]
+
+      
         cm = confusion_matrix(y_test, y_pred)
         
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
         
         disp.plot(cmap=plt.cm.Blues)
         plt.show()
         print("Final correct: ", correct, ", Incorrect: ", incorrect)
+        
+        #accuracy plots
+        plt.plot(train_accu,'-o')
+        plt.plot(eval_accu,'-o')
+        plt.xlabel('epoch')
+        plt.ylabel('accuracy')
+        plt.legend(['Train','Valid'])
+        plt.title('Train vs Valid Accuracy')
 
+        plt.show()
+        
+        
+        #loss plot
+        plt.plot(train_losses,'-o')
+        plt.plot(eval_losses,'-o')
+        plt.xlabel('epoch')
+        plt.ylabel('losses')
+        plt.legend(['Train','Valid'])
+        plt.title('Train vs Valid Losses')
+        
+        plt.show()
+        
+        
     torch.save(model.state_dict(), "trained.pth")
 
