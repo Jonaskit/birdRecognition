@@ -12,21 +12,26 @@ from torchinfo import summary
 import pandas as pd
 from collections import Counter
 import time
+from sklearn.metrics import ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+
 
 if __name__ == '__main__':
-    epochs = 10
+    epochs = 20
     batch_size = 15
     num_workers = 2
     learning_rate = 0.001
     train_ratio = 0.8
     stop_over = 90 # percent
-    data_path = './birdclef-2022/spectrograms' #looking in subfolder train
+    data_path = './birdclef-2022/spectrogramsSubset' #looking in subfolder train
 
     bestAcc = 0
     bestEpoch = 0
 
     dataset = datasets.ImageFolder(
         root=data_path,
+       # transform=transforms.Compose([transforms.Normalize((201,81)), transforms.ToTensor()]
         transform=transforms.Compose([transforms.Resize((201,81)), transforms.ToTensor()])
     )
     print(dataset)
@@ -112,8 +117,13 @@ if __name__ == '__main__':
         if correct > bestAcc:
             bestAcc = correct
             bestEpoch = epoch
+      #  y_pred = np.array(pred)
+      #  print("Y_pred:", y_pred)
+      #  y_test = np.array(Y)
+      #  print("y_test:", y_test)
 
-        print(f'\nTest Error:\nacc: {(100*correct):>0.1f}%, avg loss: {test_loss:>8f}, best acc: {(100*bestAcc):>0.1f}% at epoch {bestEpoch+1}\n')
+
+
 
     #split data to test and train
     train_size = int(train_ratio * len(dataset))
@@ -124,8 +134,8 @@ if __name__ == '__main__':
     print("Testing size:",len(test_dataset))
 
     # labels in training set
-    train_classes = [label for _, label in train_dataset]
-    print(Counter(train_classes))
+  #  train_classes = [label for _, label in train_dataset]
+  #  print(Counter(train_classes))
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
@@ -176,6 +186,10 @@ if __name__ == '__main__':
     with torch.no_grad():
         correct = 0
         incorrect = 0
+        
+        y_pred = np.zeros(test_size)
+        y_test = np.zeros(test_size)
+        count = 0
         for batch, (X, Y) in enumerate(test_dataloader):
             print("Batch: ", batch)
             X, Y = X.to(device, non_blocking=True), Y.to(device, non_blocking=True)
@@ -183,15 +197,29 @@ if __name__ == '__main__':
             
             for i in range(len(pred)):
                 predicted = dataset.classes[pred[i].argmax(0)]
+                pred_index = dataset.class_to_idx.get(dataset.classes[pred[i].argmax(0)])
                 actual = dataset.classes[Y[i]]
-                print("Predicted: {}, Actual: {}\n".format(predicted, actual))
+                actual_index = dataset.class_to_idx.get(dataset.classes[Y[i]])
+
+                y_pred[count] = pred_index
+                y_test[count] = actual_index
+                count = count + 1
+               # print("Predicted: {}, Actual: {}\n".format(predicted, actual))
                 if predicted == actual:
                     correct += 1
                 else:
                     incorrect += 1
                 # print("Predicted:\nvalue={}, class_name= {}\n".format(pred[i].argmax(0),dataset.classes[pred[i].argmax(0)]))
                 # print("Actual:\nvalue={}, class_name= {}\n".format(Y[i],dataset.classes[Y[i]]))
+      #  y_pred = np.array(dataset.classes[pred.argmax(0)])
+      #  y_test = np.array(dataset.classes[Y])
+        cm = confusion_matrix(y_test, y_pred)
         
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        
+        disp.plot(cmap=plt.cm.Blues)
+        plt.show()
         print("Final correct: ", correct, ", Incorrect: ", incorrect)
 
     torch.save(model.state_dict(), "trained.pth")
+
