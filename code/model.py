@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
-    epochs = 20
+    epochs = 1
     batch_size = 15
     num_workers = 2
     learning_rate = 0.001
@@ -31,8 +31,8 @@ if __name__ == '__main__':
 
     dataset = datasets.ImageFolder(
         root=data_path,
-       # transform=transforms.Compose([transforms.Normalize((201,81)), transforms.ToTensor()]
-        transform=transforms.Compose([transforms.Resize((201,81)), transforms.ToTensor()])
+#        transform=transforms.Compose([transforms.Resize((201,81)), transforms.ToTensor()])
+        transform=transforms.Compose([transforms.Resize((201,481)), transforms.ToTensor()])
     )
     print(dataset)
     print("\n {} Class category and index of the images: {}\n".format(len(dataset.classes), dataset.class_to_idx))
@@ -67,7 +67,7 @@ if __name__ == '__main__':
             )
 
             self.flatten = nn.Flatten()
-            self.linear = nn.Linear(10752, len(dataset.classes))
+            self.linear = nn.Linear(55552, len(dataset.classes))
             self.softmax = nn.Softmax(dim=1)
 
         def forward(self, input_data):
@@ -93,9 +93,9 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            loss, current = loss.item(), batch * batch_size
-            print(f'loss: {loss:>7f}  [{current:>5d}/{size:>5d}]')
-
+            loss, current = loss.item(), (batch + 1) * batch_size
+            print(f'loss: {loss:>7f}  [{current if current < size else size:>5d}/{size:>5d}]', end="\r")
+        
     def test(dataloader, model, epoch):
         global bestAcc, bestEpoch
 
@@ -170,7 +170,7 @@ if __name__ == '__main__':
         train(train_dataloader, model, cost, optimizer)
         test(test_dataloader, model, t)
         end_time = time.time()
-        print(f'Took: {end_time - start_time}s\n')
+        print(f'Took: {end_time - start_time}s')
         start_time = end_time
         print('-------------------------------')
         if bestAcc * 100 >= stop_over:
@@ -178,7 +178,7 @@ if __name__ == '__main__':
 
     print('Done!')
 
-    summary(model, input_size=(15, 3, 201, 81))
+    summary(model, input_size=(15, 3, 201, 481))
 
     model.eval()
     test_loss, correct = 0, 0
