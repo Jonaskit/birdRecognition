@@ -135,7 +135,6 @@ if __name__ == '__main__':
                 pred = model(X)
                 loss = cost(pred, Y) 
                 running_loss += loss.item()
-                correct += (pred.argmax(1)==Y).type(torch.float).sum().item()
                 
                 _, predicted = pred.max(1)
                 total += Y.size(0)
