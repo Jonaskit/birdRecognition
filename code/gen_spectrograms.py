@@ -31,6 +31,11 @@ os.chdir(default_dir)
 print(f'Total Labels: {len(labels)} \n')
 print(f'Label Names: {labels}')
 
+def mix_down_if_necessary(signal):
+    if signal.shape[0] > 1:
+        signal = torch.mean(signal, dim=0, keepdim=True)
+    return signal
+
 def load_audio_files(path: str, label:str):
     dataset = []
     walker = sorted(str(p) for p in Path(path).glob(f'*.ogg'))
@@ -41,7 +46,8 @@ def load_audio_files(path: str, label:str):
     
         # Load audio
         waveform, sample_rate = torchaudio.load(file_path)
-        
+        waveform = mix_down_if_necessary(waveform)
+
         target_num_samples = sample_rate * duration
         length_waveform = waveform.shape[1]
 
