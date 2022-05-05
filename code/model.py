@@ -19,13 +19,14 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
-    epochs = 10
+    epochs = 20
+    dropout = False
     batch_size = 15
     num_workers = 2
     learning_rate = 0.001
     train_ratio = 0.8
     stop_over = 90 # percent
-    data_path = './birdclef-2022/spectrogramsSubset' #looking in subfolder train
+    data_path = './birdclef-2022/spectrograms_5' #looking in subfolder train
     eval_losses=[]
     eval_accu=[]
     train_accu=[]
@@ -48,24 +49,28 @@ if __name__ == '__main__':
             super().__init__()
             self.conv1 = nn.Sequential(
                 nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=2),
+                #torch.nn.BatchNorm2d(16),
                 nn.ReLU(),
                 nn.MaxPool2d(kernel_size=2)
             )
 
             self.conv2 = nn.Sequential(
                 nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=2),
+                #torch.nn.BatchNorm2d(32),
                 nn.ReLU(),
                 nn.MaxPool2d(kernel_size=2)
             )
 
             self.conv3 = nn.Sequential(
                 nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=2),
+                #torch.nn.BatchNorm2d(64),
                 nn.ReLU(),
                 nn.MaxPool2d(kernel_size=2)
             )
 
             self.conv4 = nn.Sequential(
                 nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=2),
+                #torch.nn.BatchNorm2d(128),
                 nn.ReLU(),
                 nn.MaxPool2d(kernel_size=2)
             )
@@ -73,11 +78,16 @@ if __name__ == '__main__':
             self.flatten = nn.Flatten()
             self.linear = nn.Linear(55552, len(dataset.classes))
             self.softmax = nn.Softmax(dim=1)
+            self.dropout = nn.Dropout(0.3)
 
         def forward(self, input_data):
             x = self.conv1(input_data)
             x = self.conv2(x)
+            if dropout:
+                x = self.dropout(x)
             x = self.conv3(x)
+            if dropout:
+                x = self.dropout(x)
             x = self.conv4(x)
             x = self.flatten(x)
             logits = self.linear(x)
@@ -253,12 +263,12 @@ if __name__ == '__main__':
       #  y_pred = np.array(dataset.classes[pred.argmax(0)])
       #  y_test = np.array(dataset.classes[Y])
       
-        labels = ["1", "2", "3", "4", "5"]
+        #labels = ["1", "2", "3", "4", "5"]
 
       
         cm = confusion_matrix(y_test, y_pred)
         
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
         
         disp.plot(cmap=plt.cm.Blues)
         plt.show()
