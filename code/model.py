@@ -18,8 +18,8 @@ from pathlib import Path
 import os
 
 
-target_num_samples = 10000
-birds = ['arcter', 'bcnher']
+target_num_samples = 50000
+birds = ['arcter', 'brant']
 
 
 def load_audio_files(path: str, label: str):
@@ -79,10 +79,10 @@ class AudioDataSet(Dataset):
         return data[0], self.class_to_idx_rev[data[2]]
 
 if __name__ == '__main__':
-    epochs = 10
-    batch_size = 15
+    epochs = 20
+    batch_size = 30
     num_workers = 2
-    learning_rate = 0.001
+    learning_rate = 0.0001
     train_ratio = 0.8
     stop_over = 90 # percent
     data_path = './birdclef-2022/train_audio' #looking in subfolder train
@@ -105,33 +105,33 @@ if __name__ == '__main__':
         def __init__(self):
             super().__init__()
             self.conv1 = nn.Sequential(
-                nn.Conv1d(in_channels=1, out_channels=16, kernel_size=3, stride=1, padding=2),
+                nn.Conv1d(in_channels=1, out_channels=16, kernel_size=4, stride=1, padding=2),
                 nn.ReLU(),
-                nn.MaxPool1d(kernel_size=2)
+                nn.MaxPool1d(kernel_size=4)
             )
 
             self.conv2 = nn.Sequential(
-                nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=2),
+                nn.Conv1d(in_channels=16, out_channels=32, kernel_size=4, stride=1, padding=2),
                 nn.ReLU(),
-                nn.MaxPool1d(kernel_size=2)
+                nn.MaxPool1d(kernel_size=4)
             )
 
             self.conv3 = nn.Sequential(
-                nn.Conv1d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=2),
+                nn.Conv1d(in_channels=32, out_channels=32, kernel_size=10, stride=1, padding=2),
                 nn.ReLU(),
-                nn.MaxPool1d(kernel_size=2)
+                nn.MaxPool1d(kernel_size=10)
             )
 
             self.conv4 = nn.Sequential(
-                nn.Conv1d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=2),
+                nn.Conv1d(in_channels=32, out_channels=128, kernel_size=10, stride=1, padding=2),
                 nn.ReLU(),
-                nn.MaxPool1d(kernel_size=2)
+                nn.MaxPool1d(kernel_size=10)
             )
 
             self.flatten = nn.Flatten()
             #todo: number of in_features to nn.Linear has to be changed with every change of target_num_samples
             #todo: figure out number of input features by program itself .. ?
-            self.linear = nn.Linear(80128, len(dataset.classes))
+            self.linear = nn.Linear(3840, len(dataset.classes))
             self.softmax = nn.Softmax(dim=1)
 
         def forward(self, input_data):
