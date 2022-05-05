@@ -12,21 +12,31 @@ from torchinfo import summary
 import pandas as pd
 from collections import Counter
 import time
+from sklearn.metrics import ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import validation_curve
+import matplotlib.pyplot as plt
+
 
 if __name__ == '__main__':
-    epochs = 1000
+    epochs = 10
     batch_size = 15
     num_workers = 2
-    learning_rate = 0.0001
+    learning_rate = 0.001
     train_ratio = 0.8
-    data_path = './birdclef-2022/spectrograms' #looking in subfolder train
-
+    stop_over = 90 # percent
+    data_path = './birdclef-2022/spectrogramsSubset' #looking in subfolder train
+    eval_losses=[]
+    eval_accu=[]
+    train_accu=[]
+    train_losses=[]
     bestAcc = 0
     bestEpoch = 0
 
     dataset = datasets.ImageFolder(
         root=data_path,
-        transform=transforms.Compose([transforms.Resize((201,81)), transforms.ToTensor()])
+#        transform=transforms.Compose([transforms.Resize((201,81)), transforms.ToTensor()])
+        transform=transforms.Compose([transforms.Resize((201,481)), transforms.ToTensor()])
     )
     print(dataset)
     print("\n {} Class category and index of the images: {}\n".format(len(dataset.classes), dataset.class_to_idx))
@@ -36,60 +46,109 @@ if __name__ == '__main__':
     class CNNet(nn.Module):
         def __init__(self):
             super().__init__()
-            self.conv1 = nn.Conv2d(3, 32, kernel_size=5)
-            # self.conv2 = nn.Conv2d(32, 64, kernel_size=5)
-            # self.conv3 = nn.Conv2d(32, 64, kernel_size=5)
-            self.conv4 = nn.Conv2d(32, 64, kernel_size=5)
-            self.conv4_drop = nn.Dropout2d()
+            self.conv1 = nn.Sequential(
+                nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=2),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2)
+            )
+
+            self.conv2 = nn.Sequential(
+                nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=2),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2)
+            )
+
+            self.conv3 = nn.Sequential(
+                nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=2),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2)
+            )
+
+            self.conv4 = nn.Sequential(
+                nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=2),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2)
+            )
+
             self.flatten = nn.Flatten()
-            self.fc1 = nn.Linear(51136, 100)
-            # self.fc2 = nn.Linear(2000, 50)
-            # self.fc3 = nn.Linear(50, 50)
-            self.fc4 = nn.Linear(100, len(dataset.classes))
+            self.linear = nn.Linear(55552, len(dataset.classes))
+            self.softmax = nn.Softmax(dim=1)
 
-        def forward(self, x):
-            x = F.relu(F.max_pool2d(self.conv1(x), 2))
-            # x = F.relu(F.max_pool2d(self.conv2(x), 2))
-            # x = F.relu(F.max_pool2d(self.conv3(x), 2))
-            x = F.relu(F.max_pool2d(self.conv4_drop(self.conv4(x)), 2))
-            #x = x.view(x.size(0), -1)
+        def forward(self, input_data):
+            x = self.conv1(input_data)
+            x = self.conv2(x)
+            x = self.conv3(x)
+            x = self.conv4(x)
             x = self.flatten(x)
-            x = F.relu(self.fc1(x))
-            x = F.dropout(x, training=self.training)
-            # x = F.relu(self.fc2(x))
-            # x = F.dropout(x, training=self.training)
-            # x = F.relu(self.fc3(x))
-            # x = F.dropout(x, training=self.training)
-            x = F.relu(self.fc4(x))
-            return F.log_softmax(x,dim=1) 
+            logits = self.linear(x)
+            predictions = self.softmax(logits)
+            return predictions
 
-    def train(dataloader, model, loss, optimizer):
+
+
+    def train(dataloader, model, cost, optimizer):
         model.train()
+        running_loss=0
+        correct=0
+        total=0
+
+        
         size = len(dataloader.dataset)
         for batch, (X, Y) in enumerate(dataloader):
             
             X, Y = X.to(device, non_blocking=True), Y.to(device, non_blocking=True)
-            optimizer.zero_grad()
             pred = model(X)
             loss = cost(pred, Y)
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            loss, current = loss.item(), batch * batch_size
-            print(f'loss: {loss:>7f}  [{current:>5d}/{size:>5d}]')
+            loss_item, current = loss.item(), (batch + 1) * batch_size
+            running_loss += loss_item
+            
+            _, predicted = pred.max(1)
+            total += Y.size(0)
+            correct += predicted.eq(Y).sum().item()
+            
+            print(f'loss: {loss_item:>7f}  [{current if current < size else size:>5d}/{size:>5d}]', end="\r")
 
+        train_loss=running_loss/len(dataloader)
+        accu=100.*correct/total
+  
+        train_accu.append(accu)
+        train_losses.append(train_loss)
+        print('Train Loss: %.3f | Accuracy: %.3f'%(train_loss,accu))
+
+        
     def test(dataloader, model, epoch):
         global bestAcc, bestEpoch
-
+ 
+        
         model.eval()
-        test_loss, correct = 0, 0
+        test_loss = 0 
+        correct = 0
+        running_loss = 0 
+        total = 0
 
         with torch.no_grad():
             for batch, (X, Y) in enumerate(dataloader):
                 X, Y = X.to(device, non_blocking=True), Y.to(device, non_blocking=True)
                 pred = model(X)
-
-                test_loss += cost(pred, Y).item()
+                loss = cost(pred, Y) 
+                running_loss += loss.item()
                 correct += (pred.argmax(1)==Y).type(torch.float).sum().item()
+                
+                _, predicted = pred.max(1)
+                total += Y.size(0)
+                correct += predicted.eq(Y).sum().item()
+        
+                
+        test_loss=running_loss/len(dataloader)
+        accu=100.*correct/total
+
+        eval_losses.append(test_loss)
+        eval_accu.append(accu)
+
+        print('Test Loss: %.3f | Accuracy: %.3f'%(test_loss,accu))
         
         size = len(dataloader.dataset)
         test_loss /= size
@@ -98,8 +157,13 @@ if __name__ == '__main__':
         if correct > bestAcc:
             bestAcc = correct
             bestEpoch = epoch
+      #  y_pred = np.array(pred)
+      #  print("Y_pred:", y_pred)
+      #  y_test = np.array(Y)
+      #  print("y_test:", y_test)
 
-        print(f'\nTest Error:\nacc: {(100*correct):>0.1f}%, avg loss: {test_loss:>8f}, best acc: {(100*bestAcc):>0.1f}% at epoch {bestEpoch+1}\n')
+
+
 
     #split data to test and train
     train_size = int(train_ratio * len(dataset))
@@ -110,8 +174,8 @@ if __name__ == '__main__':
     print("Testing size:",len(test_dataset))
 
     # labels in training set
-    train_classes = [label for _, label in train_dataset]
-    print(Counter(train_classes))
+  #  train_classes = [label for _, label in train_dataset]
+  #  print(Counter(train_classes))
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
@@ -146,13 +210,15 @@ if __name__ == '__main__':
         train(train_dataloader, model, cost, optimizer)
         test(test_dataloader, model, t)
         end_time = time.time()
-        print(f'Took: {end_time - start_time}s\n')
+        print(f'Took: {end_time - start_time}s')
         start_time = end_time
         print('-------------------------------')
+        if bestAcc * 100 >= stop_over:
+            break
 
     print('Done!')
 
-    summary(model, input_size=(15, 3, 201, 81))
+    summary(model, input_size=(15, 3, 201, 481))
 
     model.eval()
     test_loss, correct = 0, 0
@@ -160,6 +226,10 @@ if __name__ == '__main__':
     with torch.no_grad():
         correct = 0
         incorrect = 0
+        
+        y_pred = np.zeros(test_size)
+        y_test = np.zeros(test_size)
+        count = 0
         for batch, (X, Y) in enumerate(test_dataloader):
             print("Batch: ", batch)
             X, Y = X.to(device, non_blocking=True), Y.to(device, non_blocking=True)
@@ -167,15 +237,55 @@ if __name__ == '__main__':
             
             for i in range(len(pred)):
                 predicted = dataset.classes[pred[i].argmax(0)]
+                pred_index = dataset.class_to_idx.get(dataset.classes[pred[i].argmax(0)])
                 actual = dataset.classes[Y[i]]
-                print("Predicted: {}, Actual: {}\n".format(predicted, actual))
+                actual_index = dataset.class_to_idx.get(dataset.classes[Y[i]])
+
+                y_pred[count] = pred_index
+                y_test[count] = actual_index
+                count = count + 1
+               # print("Predicted: {}, Actual: {}\n".format(predicted, actual))
                 if predicted == actual:
                     correct += 1
                 else:
                     incorrect += 1
                 # print("Predicted:\nvalue={}, class_name= {}\n".format(pred[i].argmax(0),dataset.classes[pred[i].argmax(0)]))
                 # print("Actual:\nvalue={}, class_name= {}\n".format(Y[i],dataset.classes[Y[i]]))
-        
-        print("Final correct: ", correct, ", Incorrect: ", incorrect)
+      #  y_pred = np.array(dataset.classes[pred.argmax(0)])
+      #  y_test = np.array(dataset.classes[Y])
+      
+        labels = ["1", "2", "3", "4", "5"]
 
+      
+        cm = confusion_matrix(y_test, y_pred)
+        
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+        
+        disp.plot(cmap=plt.cm.Blues)
+        plt.show()
+        print("Final correct: ", correct, ", Incorrect: ", incorrect)
+        
+        #accuracy plots
+        plt.plot(train_accu,'-o')
+        plt.plot(eval_accu,'-o')
+        plt.xlabel('epoch')
+        plt.ylabel('accuracy')
+        plt.legend(['Train','Valid'])
+        plt.title('Train vs Valid Accuracy')
+
+        plt.show()
+        
+        
+        #loss plot
+        plt.plot(train_losses,'-o')
+        plt.plot(eval_losses,'-o')
+        plt.xlabel('epoch')
+        plt.ylabel('losses')
+        plt.legend(['Train','Valid'])
+        plt.title('Train vs Valid Losses')
+        
+        plt.show()
+        
+        
     torch.save(model.state_dict(), "trained.pth")
+
