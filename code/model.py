@@ -119,7 +119,7 @@ if __name__ == '__main__':
             total += Y.size(0)
             correct += predicted.eq(Y).sum().item()
             
-            print(f'loss: {loss_item:>7f}  [{current if current < size else size:>5d}/{size:>5d}]', end="\r")
+            print(f'loss: {loss_item:>7f}  [{current if current < size else size:>5d}/{size:>5d}]')
 
         train_loss=running_loss/len(dataloader)
         accu=100.*correct/total
