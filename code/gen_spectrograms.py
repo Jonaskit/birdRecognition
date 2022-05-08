@@ -39,13 +39,17 @@ def mix_down_if_necessary(signal):
     return signal
 
 def load_audio_files(path: str, label:str):
+    directory = f'./{folder}/spectrograms/{label}/'
+    if os.path.isdir(directory):
+        print(label, " already existing")
+        return
     print("Gen:", label)
+    os.makedirs(directory, mode=0o777, exist_ok=True)
     walker = sorted(str(p) for p in Path(path).glob(f'*.ogg'))
 
     for i, file_path in enumerate(walker):
         path, filename = os.path.split(file_path)
-        print(filename)
-    
+        print(filename, " is created")
         # Load audio
         waveform, sample_rate = torchaudio.load(file_path)
         waveform = mix_down_if_necessary(waveform)
@@ -63,30 +67,22 @@ def load_audio_files(path: str, label:str):
             num_missing_samples = target_num_samples - length_waveform - (sample_rate * 2)
             last_dim_padding = (0, num_missing_samples)
             waveform = torch.nn.functional.pad(waveform, last_dim_padding)
-        # else:
-        #     print("Skip: ", filename)
 
-        directory = f'./{folder}/spectrograms/{label}/'
-        if(os.path.isdir(directory)):
-            pass
-        else:
-            os.makedirs(directory, mode=0o777, exist_ok=True)
+        # create transformed waveforms
+        spectrogram_tensor = torchaudio.transforms.Spectrogram()(waveform)
+        # plt.show()
+        # plt.imsave(f'./{folder}/spectrograms/{label}/spec_img{i}.png', spectrogram_tensor.log2()[0,:,:].numpy(), cmap='viridis')
 
-            # create transformed waveforms
-            spectrogram_tensor = torchaudio.transforms.Spectrogram()(waveform)
-            # plt.show()
-            # plt.imsave(f'./{folder}/spectrograms/{label}/spec_img{i}.png', spectrogram_tensor.log2()[0,:,:].numpy(), cmap='viridis')
-
-            my_dpi = 101
-            h = 201
-            w = 481
-            fig, ax = plt.subplots(1, figsize=(w/my_dpi, h/my_dpi), dpi=my_dpi)
-            ax.set_position([0, 0, 1, 1])
-            ax.imshow(spectrogram_tensor.log2()[0,:,:].numpy())
-            ax.axis("off")
-            plt.savefig(f'./{folder}/spectrograms/{label}/spec_img{i}.png', transparent = True, bbox_inches=Bbox([[0, 0], [w/my_dpi, h/my_dpi]]),
-                dpi=my_dpi)
-            plt.close(fig)
+        my_dpi = 101
+        h = 201
+        w = 481
+        fig, ax = plt.subplots(1, figsize=(w/my_dpi, h/my_dpi), dpi=my_dpi)
+        ax.set_position([0, 0, 1, 1])
+        ax.imshow(spectrogram_tensor.log2()[0,:,:].numpy())
+        ax.axis("off")
+        plt.savefig(f'./{folder}/spectrograms/{label}/spec_img{i}.png', transparent = True, bbox_inches=Bbox([[0, 0], [w/my_dpi, h/my_dpi]]),
+            dpi=my_dpi)
+        plt.close(fig)
 
 for i, name in enumerate(labels):
     load_audio_files(f'./{folder}/train_audio/{name}', name)
