@@ -26,7 +26,7 @@ if __name__ == '__main__':
     learning_rate = 0.001
     train_ratio = 0.8
     stop_over = 90 # percent
-    data_path = './birdclef-2022/spectrograms_5' #looking in subfolder train
+    data_path = './birdclef-2022/spectrograms' #looking in subfolder train
     eval_losses=[]
     eval_accu=[]
     train_accu=[]

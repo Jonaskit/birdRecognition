@@ -10,6 +10,8 @@ from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
 from matplotlib.transforms import Bbox
 
+matplotlib.use('Agg')
+
 default_dir = os.getcwd()
 folder = 'birdclef-2022'
 print(f'Data directory will be: {default_dir}/{folder}')
