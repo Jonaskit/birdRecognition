@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
-    epochs = 20
+    epochs = 200
     dropout = False
     batch_size = 15
     num_workers = 2
@@ -75,8 +75,16 @@ if __name__ == '__main__':
                 nn.MaxPool2d(kernel_size=2)
             )
 
+            self.conv5 = nn.Sequential(
+                nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=2),
+                #torch.nn.BatchNorm2d(128),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2)
+            )
+
             self.flatten = nn.Flatten()
-            self.linear = nn.Linear(55552, len(dataset.classes))
+            self.linear = nn.Linear(32768, 2000)
+            self.linear2 = nn.Linear(2000, len(dataset.classes))
             self.softmax = nn.Softmax(dim=1)
             self.dropout = nn.Dropout(0.3)
 
@@ -89,12 +97,22 @@ if __name__ == '__main__':
             if dropout:
                 x = self.dropout(x)
             x = self.conv4(x)
+            if dropout:
+                x = self.dropout(x)
+            x = self.conv5(x)
+
             x = self.flatten(x)
             logits = self.linear(x)
+            logits = self.linear2(logits)
             predictions = self.softmax(logits)
             return predictions
 
-
+    def progress_bar(current, total, bar_length=20):
+        fraction = current / total
+        arrow = int(fraction * bar_length - 1) * '-' + '>'
+        padding = int(bar_length - len(arrow)) * ' '
+        ending = '\n' if current == total else '\r'
+        print(f'Progress: [{arrow}{padding}] {int(fraction*100)}%', end=ending)
 
     def train(dataloader, model, cost, optimizer):
         model.train()
@@ -119,7 +137,7 @@ if __name__ == '__main__':
             total += Y.size(0)
             correct += predicted.eq(Y).sum().item()
             
-            print(f'loss: {loss_item:>7f}  [{current if current < size else size:>5d}/{size:>5d}]')
+            progress_bar(current if current < size else size, size)
 
         train_loss=running_loss/len(dataloader)
         accu=100.*correct/total
