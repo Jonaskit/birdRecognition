@@ -112,7 +112,7 @@ if __name__ == '__main__':
         arrow = int(fraction * bar_length - 1) * '-' + '>'
         padding = int(bar_length - len(arrow)) * ' '
         ending = '\n' if current == total else '\r'
-        print(f'Progress: [{arrow}{padding}] {int(fraction*100)}%', end=ending)
+        print(f'Progress: [{arrow}{padding}] {int(fraction*100)}%', ending)
 
     def train(dataloader, model, cost, optimizer):
         model.train()
