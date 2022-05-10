@@ -15,15 +15,16 @@ import time
 from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import validation_curve
-import matplotlib.pyplot as plt
+
 
 
 if __name__ == '__main__':
+
     epochs = 200
     dropout = False
     batch_size = 15
     num_workers = 2
-    learning_rate = 0.001
+    learning_rate = 0.0001
     train_ratio = 0.8
     stop_over = 90 # percent
     data_path = './birdclef-2022/spectrograms' #looking in subfolder train
@@ -286,6 +287,8 @@ if __name__ == '__main__':
       
         cm = confusion_matrix(y_test, y_pred)
         
+        #disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+
         disp = ConfusionMatrixDisplay(confusion_matrix=cm)
         
         disp.plot(cmap=plt.cm.Blues)
