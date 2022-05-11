@@ -15,8 +15,7 @@ import time
 from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import validation_curve
-
-
+import os
 
 if __name__ == '__main__':
 
@@ -113,7 +112,7 @@ if __name__ == '__main__':
         arrow = int(fraction * bar_length - 1) * '-' + '>'
         padding = int(bar_length - len(arrow)) * ' '
         ending = '\n' if current == total else '\r'
-        print(f'Progress: [{arrow}{padding}] {int(fraction*100)}%', ending)
+        print(f'Progress: [{arrow}{padding}] {int(fraction*100)}%', end=ending)
 
     def train(dataloader, model, cost, optimizer):
         model.train()
@@ -138,7 +137,8 @@ if __name__ == '__main__':
             total += Y.size(0)
             correct += predicted.eq(Y).sum().item()
             
-            progress_bar(current if current < size else size, size)
+            if os.environ.get('SUPPORT_PRINT_END'):
+                progress_bar(current if current < size else size, size)
 
         train_loss=running_loss/len(dataloader)
         accu=100.*correct/total
