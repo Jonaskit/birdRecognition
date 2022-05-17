@@ -15,17 +15,18 @@ import time
 from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import validation_curve
-import matplotlib.pyplot as plt
-
+import os
 
 if __name__ == '__main__':
-    epochs = 10
+
+    epochs = 200
+    dropout = False
     batch_size = 15
     num_workers = 2
-    learning_rate = 0.001
+    learning_rate = 0.0001
     train_ratio = 0.8
     stop_over = 90 # percent
-    data_path = './birdclef-2022/spectrogramsSubset' #looking in subfolder train
+    data_path = './birdclef-2022/spectrograms' #looking in subfolder train
     eval_losses=[]
     eval_accu=[]
     train_accu=[]
@@ -48,43 +49,70 @@ if __name__ == '__main__':
             super().__init__()
             self.conv1 = nn.Sequential(
                 nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=2),
+                #torch.nn.BatchNorm2d(16),
                 nn.ReLU(),
                 nn.MaxPool2d(kernel_size=2)
             )
 
             self.conv2 = nn.Sequential(
                 nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=2),
+                #torch.nn.BatchNorm2d(32),
                 nn.ReLU(),
                 nn.MaxPool2d(kernel_size=2)
             )
 
             self.conv3 = nn.Sequential(
                 nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=2),
+                #torch.nn.BatchNorm2d(64),
                 nn.ReLU(),
                 nn.MaxPool2d(kernel_size=2)
             )
 
             self.conv4 = nn.Sequential(
                 nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=2),
+                #torch.nn.BatchNorm2d(128),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2)
+            )
+
+            self.conv5 = nn.Sequential(
+                nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=2),
+                #torch.nn.BatchNorm2d(128),
                 nn.ReLU(),
                 nn.MaxPool2d(kernel_size=2)
             )
 
             self.flatten = nn.Flatten()
-            self.linear = nn.Linear(55552, len(dataset.classes))
+            self.linear = nn.Linear(32768, 2000)
+            self.linear2 = nn.Linear(2000, len(dataset.classes))
             self.softmax = nn.Softmax(dim=1)
+            self.dropout = nn.Dropout(0.3)
 
         def forward(self, input_data):
             x = self.conv1(input_data)
             x = self.conv2(x)
+            if dropout:
+                x = self.dropout(x)
             x = self.conv3(x)
+            if dropout:
+                x = self.dropout(x)
             x = self.conv4(x)
+            if dropout:
+                x = self.dropout(x)
+            x = self.conv5(x)
+
             x = self.flatten(x)
             logits = self.linear(x)
+            logits = self.linear2(logits)
             predictions = self.softmax(logits)
             return predictions
 
-
+    def progress_bar(current, total, bar_length=20):
+        fraction = current / total
+        arrow = int(fraction * bar_length - 1) * '-' + '>'
+        padding = int(bar_length - len(arrow)) * ' '
+        ending = '\n' if current == total else '\r'
+        print(f'Progress: [{arrow}{padding}] {int(fraction*100)}%', end=ending)
 
     def train(dataloader, model, cost, optimizer):
         model.train()
@@ -109,7 +137,8 @@ if __name__ == '__main__':
             total += Y.size(0)
             correct += predicted.eq(Y).sum().item()
             
-            print(f'loss: {loss_item:>7f}  [{current if current < size else size:>5d}/{size:>5d}]', end="\r")
+            if os.environ.get('SUPPORT_PRINT_END'):
+                progress_bar(current if current < size else size, size)
 
         train_loss=running_loss/len(dataloader)
         accu=100.*correct/total
@@ -135,7 +164,6 @@ if __name__ == '__main__':
                 pred = model(X)
                 loss = cost(pred, Y) 
                 running_loss += loss.item()
-                correct += (pred.argmax(1)==Y).type(torch.float).sum().item()
                 
                 _, predicted = pred.max(1)
                 total += Y.size(0)
@@ -254,12 +282,14 @@ if __name__ == '__main__':
       #  y_pred = np.array(dataset.classes[pred.argmax(0)])
       #  y_test = np.array(dataset.classes[Y])
       
-        labels = ["1", "2", "3", "4", "5"]
+        #labels = ["1", "2", "3", "4", "5"]
 
       
         cm = confusion_matrix(y_test, y_pred)
         
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+        #disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
         
         disp.plot(cmap=plt.cm.Blues)
         plt.show()
