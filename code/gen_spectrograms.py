@@ -25,7 +25,7 @@ os.chdir(f'./{folder}/train_audio/')
 # Sample limit
 limit = 20
 min_sample = 20
-duration = 5
+duration = 0 # set 0 for no trimming
 labels = [name for name in os.listdir('.') if os.path.isdir(name)]
 
 done = 0
@@ -58,19 +58,20 @@ def load_audio_files(path: str, label:str):
             waveform, sample_rate = torchaudio.load(file_path)
             waveform = mix_down_if_necessary(waveform)
 
-            target_num_samples = math.ceil(sample_rate * duration)
             length_waveform = waveform.shape[1]
 
-            skip = sample_rate * 2
+            if duration:
+                target_num_samples = math.ceil(sample_rate * duration)
+                skip = sample_rate * 2
 
-            if length_waveform > target_num_samples + skip:
-                waveform = waveform[:, skip:target_num_samples]
-            elif length_waveform > target_num_samples:
-                waveform = waveform[:, :target_num_samples]
-            else:
-                num_missing_samples = target_num_samples - length_waveform - (sample_rate * 2)
-                last_dim_padding = (0, num_missing_samples)
-                waveform = torch.nn.functional.pad(waveform, last_dim_padding)
+                if length_waveform > target_num_samples + skip:
+                    waveform = waveform[:, skip:target_num_samples]
+                elif length_waveform > target_num_samples:
+                    waveform = waveform[:, :target_num_samples]
+                else:
+                    num_missing_samples = target_num_samples - length_waveform - (sample_rate * 2)
+                    last_dim_padding = (0, num_missing_samples)
+                    waveform = torch.nn.functional.pad(waveform, last_dim_padding)
 
             # create transformed waveforms
             spectrogram_tensor = torchaudio.transforms.Spectrogram()(waveform)
@@ -79,7 +80,7 @@ def load_audio_files(path: str, label:str):
 
             my_dpi = 101
             h = 201
-            w = 481
+            w = 160 * (duration if duration else length_waveform / sample_rate)
             fig, ax = plt.subplots(1, figsize=(w/my_dpi, h/my_dpi), dpi=my_dpi)
             ax.set_position([0, 0, 1, 1])
             ax.imshow(spectrogram_tensor.log2()[0,:,:].numpy())
