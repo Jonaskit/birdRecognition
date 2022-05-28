@@ -25,7 +25,7 @@ os.chdir(f'./{folder}/train_audio/')
 # Sample limit
 limit = 20
 min_sample = 20
-duration = 0 # set 0 for no trimming
+duration = 5 # set 0 for no trimming
 labels = [name for name in os.listdir('.') if os.path.isdir(name)]
 
 done = 0
@@ -80,7 +80,7 @@ def load_audio_files(path: str, label:str):
 
             my_dpi = 101
             h = 201
-            w = 160 * (duration if duration else length_waveform / sample_rate)
+            w = 481
             fig, ax = plt.subplots(1, figsize=(w/my_dpi, h/my_dpi), dpi=my_dpi)
             ax.set_position([0, 0, 1, 1])
             ax.imshow(spectrogram_tensor.log2()[0,:,:].numpy())
